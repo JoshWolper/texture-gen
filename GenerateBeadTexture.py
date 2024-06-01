@@ -2,6 +2,54 @@ import cv2 as cv
 import numpy as np
 import math
 
+def convertNormalToRGB(nx, ny, nz):
+    assert(nx >= -1 and nx <= 1 and ny >= -1 and ny <= 1 and nz >= -1 and nz <= 1)
+    R = 0
+    G = 0
+    B = 0
+    if(nx <= 0):
+        R = (abs((-1 - nx) / 2)) * 255
+    else:
+        R = ((nx + 1) / 2) * 255
+
+    if(ny <= 0):
+        G = (abs((-1 - ny) / 2)) * 255
+    else:
+        G = ((ny + 1) / 2) * 255
+
+    if(nz <= 0):
+        B = (abs((-1 - nz) / 2)) * 255
+    else:
+        B = ((nz + 1) / 2) * 255
+    
+    return R, G, B
+
+# torus normals adapted from https://www.cs.ucdavis.edu/~amenta/s06/findnorm.pdf
+def computeRGB(iAngle, jAngle):
+
+    #tangent vector wrt bigger circle
+    tx = -math.sin(jAngle)
+    ty = math.cos(jAngle)
+    tz = 0
+
+    #tangent vector wrt smaller crcle
+    sx = math.cos(jAngle) * -math.sin(iAngle)
+    sy = math.sin(jAngle)*-math.sin(iAngle)
+    sz = math.cos(iAngle)
+
+    #normal is cross product
+    nx = ty*sz - tz*sy
+    ny = tz*sx - tx*sz
+    nz = tx*sy - ty*sx
+    length = math.sqrt(nx*nx + ny*ny + nz*nz)
+    nx /= length
+    ny /= length
+    nz /= length
+
+    R, G, B = convertNormalToRGB(nx, ny, nz)
+    
+    return R, G, B
+
 def drawBead(baseX, baseY, boundBoxLength, img, r1, r2, padding):
     cx = baseX + boundBoxLength//2 + padding
     cy = baseY + boundBoxLength//2 + padding
@@ -14,7 +62,20 @@ def drawBead(baseX, baseY, boundBoxLength, img, r1, r2, padding):
                 continue
             dist = math.sqrt(pow(cx - x, 2) + pow(cy - y, 2))
             if(dist > r1 and dist < r2 ):
-                img[x, y] = (255, 255, 255)
+
+                #iAngle range = 0 to pi
+                iAngle = ((dist - r1) / (r2 - r1)) * math.pi
+
+                #jAngle
+                dirY = x - cx
+                dirX = cy - y #invert sign to flip from pixel coords space
+                length = math.sqrt(dirX*dirX + dirY*dirY)
+                dirX /= length
+                dirY /= length
+                jAngle = math.atan2(dirY, dirX)
+
+                R, G, B = computeRGB(iAngle, jAngle)
+                img[x, y] = (B, G, R) #BooGR
 
 def main():
 
@@ -37,7 +98,8 @@ def main():
 
     print("image = " + str(height) + " x " + str(width))
 
-    tex = np.zeros((height, width, 3), np.uint8) #empty image, just black pixels
+    R, G, B = convertNormalToRGB(0, 0, 1)
+    tex = np.full((height, width, 3), (B, G, R)) #initialize image as 
 
     #iterate beads
     for i in range(beadsHeight+1):
