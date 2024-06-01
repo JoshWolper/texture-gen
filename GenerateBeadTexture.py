@@ -50,14 +50,14 @@ def computeRGB(iAngle, jAngle):
     
     return R, G, B
 
-def drawBead(baseX, baseY, boundBoxLength, img, r1, r2, padding):
+def drawBead(baseX, baseY, boundBoxLength, normals, mask, r1, r2, padding):
     cx = baseX + boundBoxLength//2 + padding
     cy = baseY + boundBoxLength//2 + padding
     for i in range(boundBoxLength):
         for j in range(boundBoxLength):
             x = baseX + i
             y = baseY + j
-            height, width, depth = img.shape
+            height, width, depth = normals.shape
             if(x < 0 or y < 0 or x >= height or y >= width):
                 continue
             dist = math.sqrt(pow(cx - x, 2) + pow(cy - y, 2))
@@ -75,19 +75,22 @@ def drawBead(baseX, baseY, boundBoxLength, img, r1, r2, padding):
                 jAngle = math.atan2(dirY, dirX)
 
                 R, G, B = computeRGB(iAngle, jAngle)
-                img[x, y] = (B, G, R) #BooGR
+                normals[x, y] = (B, G, R) #BooGR
+
+                #also write to the mask
+                mask[x,y] = (255, 255, 255)
 
 def main():
 
     #bead shape parameters
-    innerRadius = 15 #in pixels
-    outerRadius = 34
-    padding = 2
+    innerRadius = 21 #in pixels
+    outerRadius = 102
+    padding = 6
     boundBoxLength = (outerRadius + padding) * 2
     xDisplacement = int(round(math.sqrt(3*pow(outerRadius, 2) + (3 * outerRadius * padding) + 3 * pow(padding, 2))))
 
     #texture shape parameters
-    beadsWidth = 30
+    beadsWidth = 10
     width = boundBoxLength * beadsWidth
     height = (width//xDisplacement) * xDisplacement 
     beadsHeight = int(height / xDisplacement)
@@ -99,7 +102,8 @@ def main():
     print("image = " + str(height) + " x " + str(width))
 
     R, G, B = convertNormalToRGB(0, 0, 1)
-    tex = np.full((height, width, 3), (B, G, R)) #initialize image as 
+    mask = np.zeros((height, width, 3), np.uint8) #initialize image as all black
+    normals = np.full((height, width, 3), (B, G, R)) #initialize image as full of +z normal
 
     #iterate beads
     for i in range(beadsHeight+1):
@@ -108,8 +112,9 @@ def main():
             baseY = (j*boundBoxLength)
             if(i % 2 == 0):
                 baseY -= boundBoxLength//2
-            drawBead(baseX, baseY, boundBoxLength, tex, innerRadius, outerRadius, padding)
+            drawBead(baseX, baseY, boundBoxLength, normals, mask, innerRadius, outerRadius, padding)
 
-    cv.imwrite("tex.png", tex) #write file
+    cv.imwrite("beads_normal.png", normals) #write file
+    cv.imwrite("beads_mask.png", mask)
 
 main()
